@@ -1,4 +1,9 @@
-# SMB Server Set- 🔧 Automatic Samba installation and configuration
+# 🎉 SMB Server Auto Setup v1.0.0
+
+![License](https://img.shields.io/github/license/msfx07/samba-server-autosetup)
+![Python Version](https://img.shields.io/badge/python-3.6%2B-blue)
+![Supported OS](https://img.shields.io/badge/linux-supported-green)
+
 - 🔓 Anonymous access (no username/password required)
 - 📁 Configurable shared directory (default: `/srv/shared`)
 - 🪟 Windows-compatible SMB protocol
@@ -48,6 +53,9 @@ This tool was created to solve the common challenge of setting up reliable file 
 ### 1. Basic Setup
 
 ```bash
+git clone https://github.com/msfx07/samba-server-autosetup.git
+cd samba-server-autosetup
+
 sudo python3 main.py
 ```
 
@@ -208,6 +216,8 @@ net use Z: \\<SERVER_IP>\shared
 - 📊 **Monitoring**: Regular checks with `test_connectivity.sh`
 - 🪟 **Windows issues**: Use `windows_smb_commands.ps1` for client-side problems
 
+---
+
 ## Configuration Details
 
 ### Share Settings
@@ -223,6 +233,8 @@ net use Z: \\<SERVER_IP>\shared
 - Trusted local networks
 
 **Do not use this configuration on production systems or networks exposed to the internet.**
+
+---
 
 ## Troubleshooting
 
@@ -311,6 +323,8 @@ sudo ufw allow 137:138/udp
 sudo firewall-cmd --permanent --add-service=samba
 sudo firewall-cmd --reload
 ```
+
+---
 
 ## Configuration Backup
 
@@ -415,6 +429,8 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 
 **When to use**: Use these commands on Windows Guest OS when you cannot connect to the SMB share, especially with older Windows versions or strict security settings.
 
+---
+
 ## 🏗️ Script Architecture
 
 ### Class Structure
@@ -456,6 +472,7 @@ SMBServerSetup
 - **Service Validation**: Process status, configuration testing, connectivity verification
 - **System Analysis**: Complete environment assessment and recommendations
 
+---
 ## Support
 
 For issues or questions:
@@ -465,5 +482,28 @@ For issues or questions:
 4. Ensure proper permissions on the shared directory
 
 ---
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to:
+
+- Report bugs  
+- Suggest features  
+- Submit pull requests  
+- Improve documentation  
+
+### 🧑‍💻 How to Contribute
+
+1. Fork the repository  
+2. Create a feature branch (`git checkout -b feature-name`)  
+3. Commit your changes  
+4. Submit a pull request  
+
+---
+
+## 📄 License
+
+This project is licensed under the **GPL-3.0 License**.  
+See the [LICENSE](./LICENSE) file for full details.
+
 
 **Note**: This script now supports multiple Linux distributions including Ubuntu/Debian (apt), Fedora/RHEL/CentOS (dnf/yum), Arch Linux (pacman), and openSUSE (zypper). The script automatically detects your distribution and uses the appropriate package manager.
