@@ -1,6 +1,6 @@
 # 🎉 SMB Server Auto Setup v1.0.0
 
-![License](https://img.shields.io/github/license/msfx07/samba-server-autosetup)
+![License](https://img.shields.io/github/license/msfx07/samba-server-autosetup?label=GPL-3.0)
 ![Python Version](https://img.shields.io/badge/python-3.6%2B-blue)
 ![Supported OS](https://img.shields.io/badge/linux-supported-green)
 
@@ -502,7 +502,7 @@ Contributions are welcome! Please feel free to:
 
 ## 📄 License
 
-This project is licensed under the **GPL-3.0 License**.  
+This project is licensed under the **GNU General Public License v3.0 (GPL-3.0)**.  
 See the [LICENSE](./LICENSE) file for full details.
 
 
