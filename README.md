@@ -4,16 +4,6 @@
 ![Python Version](https://img.shields.io/badge/python-3.6%2B-blue)
 ![Supported OS](https://img.shields.io/badge/linux-supported-green)
 
-- 🔓 Anonymous access (no username/password required)
-- 📁 Configurable shared directory (default: `/srv/shared`)
-- 🪟 Windows-compatible SMB protocol
-- 🔐 **SMB version selection (SMBv1/SMBv2/SMBv3) with auto-timeout**
-- 🛡️ Proper permissions and security settings
-- 📋 Automatic backup of existing configuration
-- ✅ Configuration validation
-- 🌐 **Network interface binding selection with auto-timeout**
-- 🔍 **Comprehensive troubleshooting and helper scripts**nux
-
 A comprehensive Python script that automatically configures a production-ready Samba (SMB) server on Linux with anonymous access. Designed to share directories (default: `/srv/shared`) for seamless file sharing between Linux host and Windows Guest OS environments.
 
 ## 🎯 Purpose
@@ -37,6 +27,7 @@ This tool was created to solve the common challenge of setting up reliable file 
 - 📋 Automatic backup of existing configuration
 - ✅ Configuration validation
 - 🌐 **Network interface binding selection with auto-timeout**
+- 🔍 **Comprehensive troubleshooting and helper scripts**
 
 ## Prerequisites
 
