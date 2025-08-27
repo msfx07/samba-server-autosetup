@@ -1,6 +1,6 @@
 # 🎉 SMB Server Auto Setup v1.0.0
 
-![License](https://img.shields.io/github/license/msfx07/samba-server-autosetup?label=GPL-3.0)
+![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)
 ![Python Version](https://img.shields.io/badge/python-3.6%2B-blue)
 ![Supported OS](https://img.shields.io/badge/linux-supported-green)
 
@@ -341,11 +341,12 @@ sudo systemctl restart smbd nmbd
 
 ```
 setup-smbd-server-linux/
-├── main.py                    # Main SMB server setup and troubleshooting script
-├── README.md                  # Comprehensive documentation and usage guide
-├── .gitignore                 # Git ignore rules for Python development
-├── test_connectivity.sh       # Linux connectivity testing script
-└── windows_smb_commands.ps1   # Windows PowerShell configuration commands
+├── main.py                    # Main SMB server setup script
+├── README.md                  # Comprehensive documentation  
+├── LICENSE                    # GPL-3.0 License (NEW!)
+├── .gitignore                 # Git ignore rules
+├── test_connectivity.sh       # Linux connectivity testing
+└── windows_smb_commands.ps1   # Windows configuration commands
 ```
 
 ### 📁 File Descriptions
