@@ -11,9 +11,6 @@ import subprocess
 import shutil
 import time
 import select
-import socket
-import ipaddress
-import threading
 import datetime
 
 # Global configuration variables
@@ -26,7 +23,8 @@ class SMBServerSetup:
         self.share_name = "shared"
         self.samba_config = "/etc/samba/smb.conf"
         self.backup_config = "/etc/samba/smb.conf.backup"
-        self.bind_interfaces = "0.0.0.0"  # Default binding
+        self.bind_interfaces = None  # Will be set during interface selection
+        self.bind_interface_name = None  # Interface name for Samba config
         self.debug_mode = debug_mode
         self.smb_min_protocol = "NT1"  # Default to SMBv1 for compatibility
         self.smb_max_protocol = "SMB3"  # Support up to SMB3
@@ -129,23 +127,16 @@ class SMBServerSetup:
         interfaces = self.get_network_interfaces()
         
         if not interfaces:
-            print("⚠️  No network interfaces detected, using default binding (0.0.0.0)")
-            self.bind_interfaces = "0.0.0.0"
-            return
+            print("❌ No network interfaces detected. Cannot proceed with Samba setup.")
+            print("💡 Please ensure your network interfaces are properly configured.")
+            sys.exit(1)
         
         print("📡 Available network interfaces:")
         print()
         
         options = []
         
-        # Add default option
-        options.append({
-            'key': '0',
-            'description': 'Bind to all interfaces (0.0.0.0) - Default',
-            'value': '0.0.0.0'
-        })
-        
-        # Add detected interfaces
+        # Add detected interfaces (no default 0.0.0.0 option)
         for i, interface in enumerate(interfaces, 1):
             options.append({
                 'key': str(i),
@@ -159,12 +150,13 @@ class SMBServerSetup:
         
         print()
         print("🕐 You have 60 seconds to choose an option.")
-        print("⏰ If no input is provided, option [0] (bind to all interfaces) will be selected automatically.")
+        print("⏰ If no input is provided, the first available interface will be selected automatically.")
         print()
         
         # Countdown with user input
+        user_input = None
         for remaining in range(60, 0, -1):
-            prompt = f"⌛ Select option [0-{len(options)-1}] ({remaining}s remaining): "
+            prompt = f"⌛ Select option [1-{len(options)}] ({remaining}s remaining): "
             
             try:
                 # Use select for non-blocking input with 1-second timeout
@@ -182,29 +174,60 @@ class SMBServerSetup:
                     time.sleep(1)
                     continue
             except (KeyboardInterrupt, EOFError):
-                print("\n\n❌ Selection interrupted, using default (0.0.0.0)")
-                user_input = "0"
+                print("\n\n❌ Selection interrupted, using first available interface")
+                user_input = "1"
                 break
         else:
             # Timeout reached
-            print("\r⏰ Timeout reached! Auto-selecting default option [0]...")
-            user_input = "0"
+            print("\r⏰ Timeout reached! Auto-selecting first available interface...")
+            user_input = "1"
         
         # Process user input
         try:
-            choice_index = int(user_input)
+            choice_index = int(user_input) - 1  # Convert to 0-based index
             if 0 <= choice_index < len(options):
                 selected_option = options[choice_index]
                 self.bind_interfaces = selected_option['value']
+                # Also store the interface name for Samba config
+                interfaces_data = self.get_network_interfaces()
+                for interface in interfaces_data:
+                    if interface['ip'] == selected_option['value']:
+                        self.bind_interface_name = interface['name']
+                        break
+                # Fallback if interface name not found
+                if not self.bind_interface_name:
+                    self.bind_interface_name = "eth0"  # Common default
                 print(f"\n✅ Selected: {selected_option['description']}")
             else:
-                print(f"\n⚠️  Invalid choice '{user_input}', using default (0.0.0.0)")
-                self.bind_interfaces = "0.0.0.0"
-        except ValueError:
-            print(f"\n⚠️  Invalid input '{user_input}', using default (0.0.0.0)")
-            self.bind_interfaces = "0.0.0.0"
+                print(f"\n⚠️  Invalid choice '{user_input}', using first available interface")
+                selected_option = options[0]
+                self.bind_interfaces = selected_option['value']
+                # Also store the interface name for Samba config
+                interfaces_data = self.get_network_interfaces()
+                for interface in interfaces_data:
+                    if interface['ip'] == selected_option['value']:
+                        self.bind_interface_name = interface['name']
+                        break
+                # Fallback if interface name not found
+                if not self.bind_interface_name:
+                    self.bind_interface_name = "eth0"  # Common default
+                print(f"✅ Auto-selected: {selected_option['description']}")
+        except (ValueError, IndexError):
+            print(f"\n⚠️  Invalid input '{user_input}', using first available interface")
+            selected_option = options[0]
+            self.bind_interfaces = selected_option['value']
+            # Also store the interface name for Samba config
+            interfaces_data = self.get_network_interfaces()
+            for interface in interfaces_data:
+                if interface['ip'] == selected_option['value']:
+                    self.bind_interface_name = interface['name']
+                    break
+            # Fallback if interface name not found
+            if not self.bind_interface_name:
+                self.bind_interface_name = "eth0"  # Common default
+            print(f"✅ Auto-selected: {selected_option['description']}")
         
-        print(f"🔗 Samba will bind to: {self.bind_interfaces}")
+        print(f"🔗 Samba will bind to: {self.bind_interface_name} ({self.bind_interfaces})")
         print()
 
     def select_smb_version(self):
@@ -247,8 +270,8 @@ class SMBServerSetup:
             print(f"      {option['compatibility']}")
             print(f"      {option['security']}")
         
-        print(f"\n🕐 You have 60 seconds to choose an option.")
-        print(f"⏰ If no input is provided, option [0] (SMBv1 compatibility) will be selected automatically.")
+        print("\n🕐 You have 60 seconds to choose an option.")
+        print("⏰ If no input is provided, option [0] (SMBv1 compatibility) will be selected automatically.")
         print("💡 SMBv1 is recommended for maximum compatibility with older Windows systems.")
         
         # Timeout selection logic
@@ -470,7 +493,7 @@ class SMBServerSetup:
     guest account = {nobody_user}
     
     # Network binding
-    interfaces = {self.bind_interfaces}
+    interfaces = {self.bind_interface_name}
     bind interfaces only = yes
     
     # Disable printing
@@ -729,50 +752,64 @@ class SMBServerSetup:
         """Configure firewall to allow Samba traffic"""
         print("🔥 Configuring firewall for Samba...")
         
-        # Check if firewalld is available and running
-        try:
-            result = subprocess.run(["systemctl", "is-active", "firewalld"], 
-                                  capture_output=True, text=True)
-            if "active" in result.stdout:
-                print("🔍 Detected firewalld, configuring...")
-                try:
-                    # Add Samba service to default zone permanently
-                    subprocess.run(["firewall-cmd", "--add-service=samba", "--permanent"], check=True)
-                    subprocess.run(["firewall-cmd", "--add-service=samba"], check=True)
-                    
-                    # Check if network interface is in libvirt zone and configure accordingly
-                    network_interfaces = self.get_network_interfaces()
-                    for interface in network_interfaces:
-                        if interface['name'].startswith(('virbr', 'libvirt')):
-                            try:
-                                # Check zone of virtual interface
-                                zone_result = subprocess.run(["firewall-cmd", f"--get-zone-of-interface={interface['name']}"], 
-                                                            capture_output=True, text=True, check=True)
-                                zone = zone_result.stdout.strip()
-                                
-                                if zone == "libvirt":
-                                    print(f"🔍 Found {interface['name']} in libvirt zone, adding Samba...")
-                                    # Add Samba to libvirt zone
-                                    subprocess.run(["firewall-cmd", "--zone=libvirt", "--add-service=samba", "--permanent"], check=True)
-                                    subprocess.run(["firewall-cmd", "--zone=libvirt", "--add-service=samba"], check=True)
-                                    # Add explicit ports as backup
-                                    subprocess.run(["firewall-cmd", "--zone=libvirt", "--add-port=445/tcp", "--permanent"], check=True)
-                                    subprocess.run(["firewall-cmd", "--zone=libvirt", "--add-port=139/tcp", "--permanent"], check=True)
-                                    subprocess.run(["firewall-cmd", "--zone=libvirt", "--add-port=445/tcp"], check=True)
-                                    subprocess.run(["firewall-cmd", "--zone=libvirt", "--add-port=139/tcp"], check=True)
-                                    print(f"✅ Added Samba to libvirt zone for {interface['name']}")
-                            except subprocess.CalledProcessError:
-                                # Interface might not be assigned to a zone yet
-                                pass
-                    
-                    # Reload firewall
-                    subprocess.run(["firewall-cmd", "--reload"], check=True)
-                    print("✅ Firewall configured for Samba (including virtual networks)")
-                    return True
-                except subprocess.CalledProcessError as e:
-                    print(f"⚠️  Failed to configure firewalld: {e}")
-        except subprocess.CalledProcessError:
-            pass
+        # Detect OS to determine firewall approach
+        os_info = self.detect_os()
+        
+        # Skip firewalld check on Debian-based systems as they don't use firewalld by default
+        if os_info["type"] == "debian":
+            print("ℹ️  Debian-based system detected, skipping firewalld check")
+        else:
+            # Check if firewalld is available and running (for Red Hat-based systems)
+            try:
+                result = subprocess.run(["systemctl", "is-active", "firewalld"], 
+                                      capture_output=True, text=True)
+                if "active" in result.stdout:
+                    print("🔍 Detected firewalld, configuring...")
+                    # Check if firewall-cmd is available by trying a harmless command
+                    try:
+                        subprocess.run(["firewall-cmd", "--version"], check=True, capture_output=True)
+                    except (subprocess.CalledProcessError, FileNotFoundError):
+                        print("⚠️  firewalld detected but firewall-cmd not available, skipping firewalld configuration")
+                        pass  # Skip to next firewall
+                    else:
+                        try:
+                            # Add Samba service to default zone permanently
+                            subprocess.run(["firewall-cmd", "--add-service=samba", "--permanent"], check=True)
+                            subprocess.run(["firewall-cmd", "--add-service=samba"], check=True)
+                            
+                            # Check if network interface is in libvirt zone and configure accordingly
+                            network_interfaces = self.get_network_interfaces()
+                            for interface in network_interfaces:
+                                if interface['name'].startswith(('virbr', 'libvirt')):
+                                    try:
+                                        # Check zone of virtual interface
+                                        zone_result = subprocess.run(["firewall-cmd", f"--get-zone-of-interface={interface['name']}"], 
+                                                                    capture_output=True, text=True, check=True)
+                                        zone = zone_result.stdout.strip()
+                                        
+                                        if zone == "libvirt":
+                                            print(f"🔍 Found {interface['name']} in libvirt zone, adding Samba...")
+                                            # Add Samba to libvirt zone
+                                            subprocess.run(["firewall-cmd", "--zone=libvirt", "--add-service=samba", "--permanent"], check=True)
+                                            subprocess.run(["firewall-cmd", "--zone=libvirt", "--add-service=samba"], check=True)
+                                            # Add explicit ports as backup
+                                            subprocess.run(["firewall-cmd", "--zone=libvirt", "--add-port=445/tcp", "--permanent"], check=True)
+                                            subprocess.run(["firewall-cmd", "--zone=libvirt", "--add-port=139/tcp", "--permanent"], check=True)
+                                            subprocess.run(["firewall-cmd", "--zone=libvirt", "--add-port=445/tcp"], check=True)
+                                            subprocess.run(["firewall-cmd", "--zone=libvirt", "--add-port=139/tcp"], check=True)
+                                            print(f"✅ Added Samba to libvirt zone for {interface['name']}")
+                                    except subprocess.CalledProcessError:
+                                        # Interface might not be assigned to a zone yet
+                                        pass
+                            
+                            # Reload firewall
+                            subprocess.run(["firewall-cmd", "--reload"], check=True)
+                            print("✅ Firewall configured for Samba (including virtual networks)")
+                            return True
+                        except subprocess.CalledProcessError as e:
+                            print(f"⚠️  Failed to configure firewalld: {e}")
+            except subprocess.CalledProcessError:
+                pass
         
         # Check if ufw is available
         try:
@@ -926,7 +963,7 @@ class SMBServerSetup:
                 return False
         
         # Test connection
-        test_ip = self.bind_interfaces if self.bind_interfaces != "0.0.0.0" else "127.0.0.1"
+        test_ip = self.bind_interfaces
         
         try:
             print(f"🧪 Testing connection to {test_ip}...")
@@ -1016,7 +1053,7 @@ class SMBServerSetup:
         print("🔍 Enabling verbose Samba logging...")
         
         # Update smb.conf with debug logging
-        debug_config = f"""
+        debug_config = """
 # Debug logging configuration
     log level = 3
     debug timestamp = yes
@@ -1139,17 +1176,16 @@ class SMBServerSetup:
         bind_ip = self.bind_interfaces
         print(f"\n🔗 Checking binding interface: {bind_ip}")
         
-        if bind_ip != "0.0.0.0":
-            # Check if the specific IP is reachable
-            try:
-                result = subprocess.run(["ping", "-c", "1", "-W", "2", bind_ip], 
-                                      capture_output=True, text=True)
-                if result.returncode == 0:
-                    print(f"✅ Binding IP {bind_ip} is reachable")
-                else:
-                    print(f"⚠️  Binding IP {bind_ip} may not be reachable")
-            except subprocess.CalledProcessError:
-                print(f"⚠️  Cannot test binding IP {bind_ip}")
+        # Check if the specific IP is reachable
+        try:
+            result = subprocess.run(["ping", "-c", "1", "-W", "2", bind_ip], 
+                                  capture_output=True, text=True)
+            if result.returncode == 0:
+                print(f"✅ Binding IP {bind_ip} is reachable")
+            else:
+                print(f"⚠️  Binding IP {bind_ip} may not be reachable")
+        except subprocess.CalledProcessError:
+            print(f"⚠️  Cannot test binding IP {bind_ip}")
         
         # Check SMB ports
         print("\n🔌 Checking SMB port status:")
@@ -1157,14 +1193,9 @@ class SMBServerSetup:
         
         for port in ports_to_check:
             try:
-                if bind_ip == "0.0.0.0":
-                    # Check if any interface is listening on the port
-                    result = subprocess.run(["ss", "-tlnp", f"| grep :{port}"], 
-                                          shell=True, capture_output=True, text=True)
-                else:
-                    # Check specific IP
-                    result = subprocess.run(["ss", "-tlnp", f"| grep {bind_ip}:{port}"], 
-                                          shell=True, capture_output=True, text=True)
+                # Check specific IP
+                result = subprocess.run(["ss", "-tlnp", f"| grep {bind_ip}:{port}"], 
+                                      shell=True, capture_output=True, text=True)
                 
                 if result.stdout.strip():
                     print(f"  ✅ Port {port}: LISTENING")
@@ -1340,34 +1371,18 @@ class SMBServerSetup:
         print("="*60)
 
         # Display binding information
-        print(f"🔗 Binding Interface: {self.bind_interfaces}")
+        print(f"🔗 Binding Interface: {self.bind_interface_name} ({self.bind_interfaces})")
         
         # Get server IP address
-        if self.bind_interfaces == "0.0.0.0":
-            try:
-                result = subprocess.run(["hostname", "-I"],
-                                      capture_output=True, text=True, check=True)
-                ip_addresses = result.stdout.strip().split()
-                print(f"📡 Available Server IPs: {', '.join(ip_addresses)}")
-                primary_ip = ip_addresses[0] if ip_addresses else "0.0.0.0"
-            except Exception:
-                print("📡 Server IP Address: <check with 'ip addr' command>")
-                primary_ip = "<SERVER_IP>"
-        else:
-            primary_ip = self.bind_interfaces
-            print(f"� Server IP Address: {primary_ip}")
+        primary_ip = self.bind_interfaces
+        print(f"📡 Server IP Address: {primary_ip}")
 
-        print(f"�📁 Share Name: {self.share_name}")
+        print(f"📁 Share Name: {self.share_name}")
         print(f"📂 Share Path: {self.share_path}")
         print("\n🪟 Windows Connection Instructions:")
         print("1. Open File Explorer on Windows")
         print("2. In the address bar, type:")
-        
-        if self.bind_interfaces == "0.0.0.0":
-            print(f"   \\\\{primary_ip}\\{self.share_name}")
-            print("   (or use any of the available server IPs listed above)")
-        else:
-            print(f"   \\\\{primary_ip}\\{self.share_name}")
+        print(f"   \\\\{primary_ip}\\{self.share_name}")
         
         print("3. Press Enter")
         print("4. No username/password required (anonymous access)")

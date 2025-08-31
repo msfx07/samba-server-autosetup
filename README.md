@@ -1,7 +1,23 @@
 # 🎉 SMB Server Auto Setup v1.0.0
 
-![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)
-![Python Version](https://img.shields.io/badge/python-3.6%2B-blue)
+![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blDuring setup, the script will:
+1. **Detect all available network interfaces** (physical, virtual, bridge)
+2. **Display options** with IP addresses
+3. **Provide 60-second countdown** for user selection
+4. **Auto-select first available interface** if no input provided
+
+**Example interface selection:**
+```
+📡 Available network interfaces:
+
+  [1] Bind to eth0 (192.168.1.100)
+  [2] Bind to wlan0 (192.168.1.101)
+  [3] Bind to virbr0 (192.168.122.1)
+
+🕐 You have 60 seconds to choose an option.
+⏰ If no input is provided, the first available interface will be selected automatically.
+
+⌛ Select option [1-3] (60s remaining):rsion](https://img.shields.io/badge/python-3.6%2B-blue)
 ![Supported OS](https://img.shields.io/badge/linux-supported-green)
 
 A comprehensive Python script that automatically configures a production-ready Samba (SMB) server on Linux with anonymous access. Designed to share directories (default: `/srv/shared`) for seamless file sharing between Linux host and Windows Guest OS environments.
@@ -38,6 +54,7 @@ This tool was created to solve the common challenge of setting up reliable file 
   - **openSUSE**: `zypper`
 - Root/sudo privileges
 - Network connectivity between host and guest OS
+- (Optional) [uv](https://github.com/astral-sh/uv) for faster Python execution
 
 ## Usage
 
@@ -48,6 +65,18 @@ git clone https://github.com/msfx07/samba-server-autosetup.git
 cd samba-server-autosetup
 
 sudo python3 main.py
+```
+
+### Using uv (Optional)
+
+For faster execution, you can use [uv](https://github.com/astral-sh/uv), a fast Python package installer and resolver.
+
+```bash
+# Install uv
+./setup_up.sh
+
+# Run with uv
+sudo uv run main.py
 ```
 
 ### 2. Debug Mode (Recommended for Troubleshooting)
@@ -290,11 +319,29 @@ sudo systemctl restart smbd nmbd
 # Red Hat/Fedora/CentOS:
 sudo systemctl restart smb nmb
 
+# Verify SMB setup and interface binding
+sudo ./verify_smb_setup.sh
+
 # Test configuration
 sudo testparm
 
 # View Samba logs
+# View Samba logs
 sudo tail -f /var/log/samba/log.smbd
+```
+
+### SMB Setup Verification
+
+The `verify_smb_setup.sh` script provides comprehensive verification that your SMB server is:
+- ✅ Running on the correct services
+- ✅ Bound to the intended network interface (not 0.0.0.0)
+- ✅ Listening on the correct ports (445, 139)
+- ✅ Properly configured according to your Samba config
+
+**Run it after setup to ensure everything is working correctly:**
+```bash
+sudo ./verify_smb_setup.sh
+```
 
 # Check network connections
 sudo netstat -tlnp | grep :445
