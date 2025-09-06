@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.2] - 2025-09-07
+
+### Fixed
+- **Windows 10 Write Access**: Resolved read-only access issue for Windows 10 clients
+  - Removed problematic `force user` and `force group` settings that caused permission conflicts
+  - Updated create/directory masks from 0755 to 0777 for full permissions
+  - Added `force create mode` and `force directory mode` settings
+  - Fixed recursive permission setting for existing files and directories
+  - Ensured proper anonymous guest access with write permissions
+
+### Changed
+- **Permission Management**: Enhanced permission setup to be recursive on all files and directories
+- **Samba Configuration**: Improved share configuration for better Windows compatibility
+
 ## [1.0.1] - 2025-09-07
 
 ### Added
