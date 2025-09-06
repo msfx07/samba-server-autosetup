@@ -281,7 +281,7 @@ class SMBServerSetup:
         
         while time.time() - start_time < timeout:
             remaining = int(timeout - (time.time() - start_time))
-            prompt = f"\n⌛ Select option [0-{len(smb_options)-1}] ({remaining}s remaining): "
+            prompt = f"⌛ Select option [0-{len(smb_options)-1}] ({remaining}s remaining): "
             
             try:
                 # Check if input is available
@@ -847,58 +847,189 @@ class SMBServerSetup:
         return False
     
     def check_firewall_status(self):
-        """Check and display firewall status for SMB services"""
+        """Check and display firewall status for SMB services based on OS"""
         print("\n🔥 Checking firewall configuration for SMB...")
-        
+
+        # Detect OS to determine appropriate firewall
+        os_info = self.detect_os()
+
+        if os_info["type"] == "debian":
+            # Debian/Ubuntu typically uses UFW or iptables
+            return self._check_ufw_firewall()
+        elif os_info["type"] == "redhat":
+            # Red Hat/CentOS/Fedora typically uses firewalld
+            return self._check_firewalld_firewall()
+        elif os_info["type"] == "arch":
+            # Arch Linux typically uses iptables or ufw
+            return self._check_ufw_firewall() or self._check_iptables_firewall()
+        elif os_info["type"] == "suse":
+            # openSUSE uses firewalld or SuSEfirewall2
+            return self._check_firewalld_firewall() or self._check_suse_firewall()
+        else:
+            # Unknown OS - try common firewalls
+            return (self._check_firewalld_firewall() or
+                    self._check_ufw_firewall() or
+                    self._check_iptables_firewall())
+
+    def _check_firewalld_firewall(self):
+        """Check firewalld status (Red Hat/CentOS/Fedora/openSUSE)"""
         try:
-            result = subprocess.run(["systemctl", "is-active", "firewalld"], 
+            # Check if firewalld is installed and running
+            result = subprocess.run(["systemctl", "is-active", "firewalld"],
+                                  capture_output=True, text=True)
+            if "active" not in result.stdout:
+                print("ℹ️  Firewalld not active")
+                return False
+
+            print("🔍 Firewalld Status:")
+
+            # Check if firewall-cmd is available
+            try:
+                subprocess.run(["firewall-cmd", "--version"],
+                             capture_output=True, check=True)
+            except (subprocess.CalledProcessError, FileNotFoundError):
+                print("  ❌ firewall-cmd not found")
+                return False
+
+            # Check default zone
+            try:
+                result = subprocess.run(["firewall-cmd", "--list-services"],
+                                      capture_output=True, text=True, check=True)
+                services = result.stdout.strip()
+                if "samba" in services:
+                    print("  ✅ Samba service enabled in default zone")
+                else:
+                    print("  ❌ Samba service NOT enabled in default zone")
+            except subprocess.CalledProcessError:
+                print("  ⚠️  Cannot check default zone services")
+
+            # Check libvirt zone
+            try:
+                result = subprocess.run(["firewall-cmd", "--zone=libvirt", "--list-services"],
+                                      capture_output=True, text=True, check=True)
+                services = result.stdout.strip()
+                if "samba" in services:
+                    print("  ✅ Samba service enabled in libvirt zone")
+                else:
+                    print("  ❌ Samba service NOT enabled in libvirt zone")
+                    print("  💡 Run: sudo firewall-cmd --zone=libvirt --add-service=samba --permanent")
+            except subprocess.CalledProcessError:
+                print("  ℹ️  Libvirt zone not found or not configured")
+
+            # Check for explicit ports
+            try:
+                result = subprocess.run(["firewall-cmd", "--zone=libvirt", "--list-ports"],
+                                      capture_output=True, text=True, check=True)
+                ports = result.stdout.strip()
+                if "445/tcp" in ports and "139/tcp" in ports:
+                    print("  ✅ SMB ports 445/tcp and 139/tcp enabled in libvirt zone")
+                else:
+                    print("  ⚠️  SMB ports may not be explicitly enabled in libvirt zone")
+            except subprocess.CalledProcessError:
+                pass
+
+            return True
+
+        except subprocess.CalledProcessError:
+            print("ℹ️  Firewalld not available")
+            return False
+        except FileNotFoundError:
+            print("ℹ️  Firewalld not installed")
+            return False
+
+    def _check_ufw_firewall(self):
+        """Check UFW status (Ubuntu/Debian)"""
+        try:
+            # Check if UFW is installed
+            subprocess.run(["which", "ufw"], capture_output=True, check=True)
+
+            # Check UFW status
+            result = subprocess.run(["ufw", "status"], capture_output=True, text=True, check=True)
+
+            if "inactive" in result.stdout:
+                print("ℹ️  UFW is inactive")
+                return False
+
+            print("🔍 UFW Status:")
+
+            # Check if Samba is allowed
+            if "445/tcp" in result.stdout and "139/tcp" in result.stdout:
+                print("  ✅ SMB ports 445/tcp and 139/tcp are allowed")
+            elif "Samba" in result.stdout or "samba" in result.stdout:
+                print("  ✅ Samba service is allowed")
+            else:
+                print("  ❌ SMB ports/services not explicitly allowed")
+                print("  💡 Run: sudo ufw allow samba")
+
+            return True
+
+        except subprocess.CalledProcessError:
+            print("ℹ️  UFW not available or not active")
+            return False
+        except FileNotFoundError:
+            print("ℹ️  UFW not installed")
+            return False
+
+    def _check_iptables_firewall(self):
+        """Check iptables status (fallback for systems without modern firewalls)"""
+        try:
+            # Check if iptables is available
+            subprocess.run(["which", "iptables"], capture_output=True, check=True)
+
+            print("🔍 iptables Status:")
+
+            # Check for SMB rules
+            smb_ports = ["445", "139", "137", "138"]
+            found_rules = []
+
+            for port in smb_ports:
+                try:
+                    # Check TCP ports
+                    if port in ["445", "139"]:
+                        result = subprocess.run(["iptables", "-L", "INPUT", "-n"],
+                                              capture_output=True, text=True, check=True)
+                        if f"dpt:{port}" in result.stdout:
+                            found_rules.append(f"{port}/tcp")
+                    # Check UDP ports
+                    else:
+                        result = subprocess.run(["iptables", "-L", "INPUT", "-n"],
+                                              capture_output=True, text=True, check=True)
+                        if f"dpt:{port}" in result.stdout:
+                            found_rules.append(f"{port}/udp")
+                except subprocess.CalledProcessError:
+                    continue
+
+            if found_rules:
+                print(f"  ✅ Found iptables rules for: {', '.join(found_rules)}")
+            else:
+                print("  ❌ No SMB-related iptables rules found")
+                print("  💡 Consider adding rules for ports 445/tcp, 139/tcp, 137/udp, 138/udp")
+
+            return True
+
+        except subprocess.CalledProcessError:
+            print("ℹ️  iptables not available")
+            return False
+        except FileNotFoundError:
+            print("ℹ️  iptables not installed")
+            return False
+
+    def _check_suse_firewall(self):
+        """Check SuSEfirewall2 status (openSUSE)"""
+        try:
+            # Check if SuSEfirewall2 is available
+            result = subprocess.run(["systemctl", "is-active", "SuSEfirewall2"],
                                   capture_output=True, text=True)
             if "active" in result.stdout:
-                print("🔍 Firewalld Status:")
-                
-                # Check default zone
-                try:
-                    result = subprocess.run(["firewall-cmd", "--list-services"], 
-                                          capture_output=True, text=True, check=True)
-                    services = result.stdout.strip()
-                    if "samba" in services:
-                        print("  ✅ Samba service enabled in default zone")
-                    else:
-                        print("  ❌ Samba service NOT enabled in default zone")
-                except subprocess.CalledProcessError:
-                    pass
-                
-                # Check libvirt zone
-                try:
-                    result = subprocess.run(["firewall-cmd", "--zone=libvirt", "--list-services"], 
-                                          capture_output=True, text=True, check=True)
-                    services = result.stdout.strip()
-                    if "samba" in services:
-                        print("  ✅ Samba service enabled in libvirt zone")
-                    else:
-                        print("  ❌ Samba service NOT enabled in libvirt zone")
-                        print("  💡 Run: sudo firewall-cmd --zone=libvirt --add-service=samba --permanent")
-                except subprocess.CalledProcessError:
-                    print("  ℹ️  Libvirt zone not found")
-                
-                # Check for explicit ports
-                try:
-                    result = subprocess.run(["firewall-cmd", "--zone=libvirt", "--list-ports"], 
-                                          capture_output=True, text=True, check=True)
-                    ports = result.stdout.strip()
-                    if "445/tcp" in ports and "139/tcp" in ports:
-                        print("  ✅ SMB ports 445/tcp and 139/tcp enabled in libvirt zone")
-                    else:
-                        print("  ⚠️  SMB ports may not be explicitly enabled in libvirt zone")
-                except subprocess.CalledProcessError:
-                    pass
-                
+                print("🔍 SuSEfirewall2 Status:")
+                print("  ℹ️  SuSEfirewall2 is active (configuration check not implemented)")
                 return True
+            else:
+                print("ℹ️  SuSEfirewall2 not active")
+                return False
         except subprocess.CalledProcessError:
-            pass
-        
-        print("ℹ️  Firewalld not active or not found")
-        return False
+            print("ℹ️  SuSEfirewall2 not available")
+            return False
     
     def configure_selinux(self):
         """Configure SELinux for Samba if available"""
@@ -1376,23 +1507,19 @@ class SMBServerSetup:
         # Get server IP address
         primary_ip = self.bind_interfaces
         print(f"📡 Server IP Address: {primary_ip}")
-
         print(f"📁 Share Name: {self.share_name}")
         print(f"📂 Share Path: {self.share_path}")
         print("\n🪟 Windows Connection Instructions:")
         print("1. Open File Explorer on Windows")
         print("2. In the address bar, type:")
         print(f"   \\\\{primary_ip}\\{self.share_name}")
-        
         print("3. Press Enter")
         print("4. No username/password required (anonymous access)")
-
         print("\n🔧 Management Commands:")
         print("• Check service status: sudo systemctl status smbd")
         print("• Restart Samba: sudo systemctl restart smbd nmbd")
         print("• View logs: sudo tail -f /var/log/samba/log.smbd")
         print("• Test config: sudo testparm")
-
         print("\n⚠️  Security Note:")
         print("This setup allows anonymous access to the shared directory.")
         print("Ensure this is appropriate for your network environment.")

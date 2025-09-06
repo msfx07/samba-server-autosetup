@@ -1,4 +1,4 @@
-# 🎉 SMB Server Auto Setup v1.0.0
+# 🎉 SMB Server Auto Setup v1.0.1
 
 ![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blDuring setup, the script will:
 1. **Detect all available network interfaces** (physical, virtual, bridge)
@@ -63,8 +63,6 @@ This tool was created to solve the common challenge of setting up reliable file 
 ```bash
 git clone https://github.com/msfx07/samba-server-autosetup.git
 cd samba-server-autosetup
-
-sudo python3 main.py
 ```
 
 ### Using uv (Optional)
@@ -75,8 +73,14 @@ For faster execution, you can use [uv](https://github.com/astral-sh/uv), a fast 
 # Install uv
 ./setup_up.sh
 
+# create virtual environment
+uv venv
+
+# Activate virtual environment
+source .venv/bin/activate
+
 # Run with uv
-sudo uv run main.py
+sudo python3 main.py
 ```
 
 ### 2. Debug Mode (Recommended for Troubleshooting)
