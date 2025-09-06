@@ -1,23 +1,7 @@
 # 🎉 SMB Server Auto Setup v1.0.1
 
-![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blDuring setup, the script will:
-1. **Detect all available network interfaces** (physical, virtual, bridge)
-2. **Display options** with IP addresses
-3. **Provide 60-second countdown** for user selection
-4. **Auto-select first available interface** if no input provided
-
-**Example interface selection:**
-```
-📡 Available network interfaces:
-
-  [1] Bind to eth0 (192.168.1.100)
-  [2] Bind to wlan0 (192.168.1.101)
-  [3] Bind to virbr0 (192.168.122.1)
-
-🕐 You have 60 seconds to choose an option.
-⏰ If no input is provided, the first available interface will be selected automatically.
-
-⌛ Select option [1-3] (60s remaining):rsion](https://img.shields.io/badge/python-3.6%2B-blue)
+![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue)
+![Python Version](https://img.shields.io/badge/python-3.6%2B-blue)
 ![Supported OS](https://img.shields.io/badge/linux-supported-green)
 
 A comprehensive Python script that automatically configures a production-ready Samba (SMB) server on Linux with anonymous access. Designed to share directories (default: `/srv/shared`) for seamless file sharing between Linux host and Windows Guest OS environments.
@@ -38,8 +22,8 @@ This tool was created to solve the common challenge of setting up reliable file 
 - 🔓 Anonymous access (no username/password required)
 - 📁 Configurable shared directory (default: `/srv/shared`)
 - 🪟 Windows-compatible SMB protocol
-- � **SMB version selection (SMBv1/SMBv2/SMBv3) with auto-timeout**
-- �🛡️ Proper permissions and security settings
+- 🔄 **SMB version selection (SMBv1/SMBv2/SMBv3) with auto-timeout**
+- 🛡️ Proper permissions and security settings
 - 📋 Automatic backup of existing configuration
 - ✅ Configuration validation
 - 🌐 **Network interface binding selection with auto-timeout**
@@ -73,7 +57,7 @@ For faster execution, you can use [uv](https://github.com/astral-sh/uv), a fast 
 # Install uv
 ./setup_up.sh
 
-# create virtual environment
+# Create virtual environment
 uv venv
 
 # Activate virtual environment
