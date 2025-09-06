@@ -1,4 +1,4 @@
-# 🎉 SMB Server Auto Setup v1.0.1
+# 🎉 SMB Server Auto Setup v1.0.2
 
 ![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue)
 ![Python Version](https://img.shields.io/badge/python-3.6%2B-blue)
