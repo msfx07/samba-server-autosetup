@@ -520,10 +520,10 @@ class SMBServerSetup:
     writable = yes
     guest ok = yes
     guest only = yes
-    create mask = 0755
-    directory mask = 0755
-    force user = {nobody_user}
-    force group = {nobody_group}
+    create mask = 0777
+    directory mask = 0777
+    force create mode = 0777
+    force directory mode = 0777
     public = yes
 """
 
@@ -580,8 +580,17 @@ class SMBServerSetup:
         """Set proper permissions for the shared directory"""
         print("🔐 Setting directory permissions...")
         try:
-            # Make directory accessible to everyone
+            # Make directory and all contents accessible
             os.chmod(self.share_path, 0o755)
+            
+            # Set permissions recursively on all files and directories
+            for root, dirs, files in os.walk(self.share_path):
+                # Set directory permissions
+                for d in dirs:
+                    os.chmod(os.path.join(root, d), 0o755)
+                # Set file permissions
+                for f in files:
+                    os.chmod(os.path.join(root, f), 0o755)
 
             # Get appropriate nobody user and group for this system
             nobody_user, nobody_group = self.get_nobody_user_group()
